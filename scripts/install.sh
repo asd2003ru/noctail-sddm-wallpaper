@@ -7,6 +7,7 @@ plugin_dir="$data_home/noctalia/plugins/noctail-sddm-wallpaper"
 config_home=${NOCTALIA_CONFIG_HOME:-${XDG_CONFIG_HOME:-"$HOME/.config"}}
 hook_file="$config_home/noctalia/sddm-wallpaper.toml"
 hook_command='wallpaper_changed = "noctalia msg plugin noctail/sddm-wallpaper:sync all sync"'
+color_hook_command='colors_changed = "noctalia msg plugin noctail/sddm-wallpaper:sync all colors"'
 
 if [ "$(id -u)" -eq 0 ]; then
     echo 'Run scripts/install.sh as your regular user.' >&2
@@ -36,6 +37,10 @@ if [ -f "$hook_file" ] && ! grep -Fqx "$hook_command" "$hook_file"; then
     echo "Existing $hook_file does not contain the expected wallpaper hook; merge it manually." >&2
     exit 1
 fi
+if [ -f "$hook_file" ] && grep -Eq '^[[:space:]]*colors_changed[[:space:]]*=' "$hook_file" && ! grep -Fqx "$color_hook_command" "$hook_file"; then
+    echo "Existing colors hook in $hook_file differs; merge it manually." >&2
+    exit 1
+fi
 
 seed_source=$(python3 "$repo_dir/plugin/wallpaper.py" seed-source)
 if [ -z "$seed_source" ]; then
@@ -51,7 +56,9 @@ install -m 755 "$repo_dir/plugin/wallpaper.py" "$plugin_dir/wallpaper.py"
 
 if [ ! -f "$hook_file" ]; then
     mkdir -p "$(dirname -- "$hook_file")"
-    printf '[hooks]\n%s\n' "$hook_command" > "$hook_file"
+    printf '[hooks]\n%s\n%s\n' "$hook_command" "$color_hook_command" > "$hook_file"
+elif ! grep -Fqx "$color_hook_command" "$hook_file"; then
+    printf '%s\n' "$color_hook_command" >> "$hook_file"
 fi
 
 noctalia msg config-reload

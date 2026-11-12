@@ -1,18 +1,18 @@
 id = "noctail/sddm-wallpaper"
 name = "SDDM Wallpaper"
-version = "1.3.0"
-plugin_api = 25
+version = "1.4.0"
+plugin_api = 43
 author = "noctail"
 license = "MIT"
 icon = "photo"
-description = "Sync a selected Noctalia output or choose a separate SDDM wallpaper."
+description = "Sync Noctalia wallpaper and colors with SDDM, or choose a separate wallpaper."
 dependencies = ["python3", "zenity"]
 
 [[panel]]
 id = "wallpaper"
 entry = "panel.luau"
 width = 420
-height = 400
+height = 440
 placement = "floating"
 position = "center"
 

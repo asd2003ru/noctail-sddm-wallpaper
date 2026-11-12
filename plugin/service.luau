@@ -3,13 +3,46 @@ local busy = false
 local pending = false
 local lastError = nil
 local sync
+local reportError
+local colorRoles = {
+    mPrimary = "primary", mOnPrimary = "on_primary",
+    mSecondary = "secondary", mOnSecondary = "on_secondary",
+    mTertiary = "tertiary", mOnTertiary = "on_tertiary",
+    mError = "error", mOnError = "on_error",
+    mSurface = "surface", mOnSurface = "on_surface",
+    mSurfaceVariant = "surface_container", mOnSurfaceVariant = "on_surface_variant",
+    mOutline = "outline_variant", mShadow = "shadow",
+    mHover = "hover", mOnHover = "on_hover",
+}
 
-local function reportError(message)
+local function syncColors()
+    local colors = {}
+    for key, role in pairs(colorRoles) do
+        local value = noctalia.getColor(role)
+        if not value then
+            reportError("Noctalia color unavailable: " .. role)
+            return
+        end
+        colors[key] = value
+    end
+    local payload = noctalia.json.encode(colors)
+    if not payload then
+        reportError("Could not encode Noctalia colors")
+        return
+    end
+    local accepted = noctalia.runAsync({ "python3", helper, "colors", payload }, function(result)
+        if result.exitCode ~= 0 then
+            local message = (result.stderr or ""):gsub("%s+$", "")
+            reportError(message ~= "" and message or "Color sync failed")
+        end
+    end, 60000)
+    if not accepted then reportError("Could not start color sync") end
+end
+
+reportError = function(message)
     if message ~= lastError then
         noctalia.log("SDDM wallpaper sync: " .. message)
-        if string.find(message, "PNG is not supported", 1, true) then
-            noctalia.notifyError("SDDM Wallpaper", message)
-        end
+        noctalia.notifyError("SDDM Wallpaper", message)
         lastError = message
     end
 end
@@ -78,6 +111,9 @@ end
 function onIpc(event, _payload)
     if event == "sync" then
         sync()
+        syncColors()
+    elseif event == "colors" then
+        syncColors()
     end
 end
 
@@ -86,3 +122,4 @@ function onOutputsChanged()
 end
 
 sync()
+syncColors()

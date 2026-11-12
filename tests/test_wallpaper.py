@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -26,6 +27,7 @@ class WallpaperTests(unittest.TestCase):
         self.state_dir = root / "state"
         self.patches = [
             patch.object(wallpaper, "DEST", self.dest),
+            patch.object(wallpaper, "DATA_CONFIG", self.dest.parent / "theme.conf"),
             patch.object(wallpaper, "STATE_DIR", self.state_dir),
             patch.object(wallpaper, "STATE_FILE", self.state_dir / "state.json"),
         ]
@@ -88,6 +90,25 @@ class WallpaperTests(unittest.TestCase):
         self.assertEqual(self.dest.read_bytes(), first)
         self.assertEqual(wallpaper.load_state()["connector"], "DP-1")
 
+    def test_color_sync_updates_palette_and_preserves_background(self):
+        config = self.dest.parent / "theme.conf"
+        config.write_text((Path(__file__).parents[1] / "theme/theme.conf").read_text())
+        colors = {key: "#123456" for key in wallpaper.COLOR_KEYS}
+        self.invoke("colors", json.dumps(colors))
+        self.assertIn("mPrimary=#123456", config.read_text())
+        self.assertIn("background=Assets/background.png", config.read_text())
+        self.invoke("color-mode", "off")
+        self.assertFalse(wallpaper.load_state()["colors_sync"])
+        other = {key: "#ABCDEF" for key in wallpaper.COLOR_KEYS}
+        self.invoke("colors", json.dumps(other))
+        self.assertIn("mPrimary=#123456", config.read_text())
+        self.invoke("color-mode", "on", json.dumps(other))
+        self.assertTrue(wallpaper.load_state()["colors_sync"])
+        self.assertIn("mPrimary=#ABCDEF", config.read_text())
+        with self.assertRaisesRegex(RuntimeError, "Invalid Noctalia color"):
+            self.invoke("colors", json.dumps({**other, "mPrimary": "bad\nbackground=evil"}))
+        self.assertIn("background=Assets/background.png", config.read_text())
+
 
 class SystemSetupTests(unittest.TestCase):
     def test_bundled_theme_installs_without_existing_theme(self):
@@ -109,11 +130,17 @@ class SystemSetupTests(unittest.TestCase):
                     patch.object(system_setup, "SDDM_CONFIG_BACKUP", root / "sddm.conf.noctail-backup"), \
                     patch.object(system_setup, "SDDM_CONFIG_ABSENT", root / "sddm.conf.noctail-absent"), \
                     patch.object(system_setup, "DATA_DIR", data), \
+                    patch.object(system_setup, "DATA_CONFIG", data / "theme.conf"), \
                     patch.object(system_setup, "DEST", data / "background.jpg"):
                 system_setup.install(user, str(source), str(Path(__file__).parents[1] / "theme"))
                 self.assertTrue((theme / "Main.qml").is_file())
+                self.assertTrue((theme / "theme.conf").is_symlink())
                 self.assertIn("Current=sddm", sddm_config.read_text())
                 self.assertEqual((data / "background.jpg").read_bytes(), source.read_bytes())
+                with patch.object(wallpaper, "DEST", data / "background.jpg"), \
+                        patch.object(wallpaper, "DATA_CONFIG", data / "theme.conf"):
+                    wallpaper.write_colors(json.dumps({key: "#2468AC" for key in wallpaper.COLOR_KEYS}))
+                self.assertIn("mPrimary=#2468AC", (theme / "theme.conf").read_text())
                 system_setup.uninstall()
                 self.assertFalse(sddm_config.exists())
 
@@ -144,6 +171,7 @@ class SystemSetupTests(unittest.TestCase):
                     patch.object(system_setup, "SDDM_CONFIG_BACKUP", Path(tmp) / "sddm.conf.noctail-backup"), \
                     patch.object(system_setup, "SDDM_CONFIG_ABSENT", Path(tmp) / "sddm.conf.noctail-absent"), \
                     patch.object(system_setup, "DATA_DIR", data), \
+                    patch.object(system_setup, "DATA_CONFIG", data / "theme.conf"), \
                     patch.object(system_setup, "DEST", data / "background.jpg"):
                 system_setup.install(user, str(source), str(theme))
                 self.assertIn("background=file://" + str(data / "background.jpg"), config.read_text())

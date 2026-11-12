@@ -5,11 +5,13 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
 
 DEST = Path("/var/lib/noctail-sddm-wallpaper/background.jpg")
+DATA_CONFIG = DEST.parent / "theme.conf"
 STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
 STATE_DIR = STATE_HOME / "noctail-sddm-wallpaper"
 STATE_FILE = STATE_DIR / "state.json"
@@ -31,6 +33,7 @@ def load_state():
         "mode": data.get("mode") if data.get("mode") in ("sync", "manual") else "sync",
         "connector": data.get("connector") if isinstance(data.get("connector"), str) else "",
         "image": data.get("image") if isinstance(data.get("image"), str) else "",
+        "colors_sync": data.get("colors_sync") if isinstance(data.get("colors_sync"), bool) else True,
     }
 
 
@@ -94,6 +97,43 @@ def needs_update(source, state):
     )
 
 
+COLOR_KEYS = (
+    "mPrimary", "mOnPrimary", "mSecondary", "mOnSecondary", "mTertiary", "mOnTertiary",
+    "mError", "mOnError", "mSurface", "mOnSurface", "mSurfaceVariant",
+    "mOnSurfaceVariant", "mOutline", "mShadow", "mHover", "mOnHover",
+)
+
+
+def write_colors(raw):
+    colors = json.loads(raw)
+    if not isinstance(colors, dict) or set(colors) != set(COLOR_KEYS):
+        raise RuntimeError("Incomplete Noctalia color palette")
+    if any(not isinstance(value, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", value) for value in colors.values()):
+        raise RuntimeError("Invalid Noctalia color value")
+    require_installed()
+    if not DATA_CONFIG.is_file():
+        raise RuntimeError("SDDM theme configuration is missing; rerun scripts/install.sh")
+    original = DATA_CONFIG.read_text()
+    updated = original
+    for key in COLOR_KEYS:
+        updated, count = re.subn(r"(?m)^" + key + r"=.*$", key + "=" + colors[key], updated, count=1)
+        if count != 1:
+            raise RuntimeError("SDDM theme is missing color " + key)
+    if updated == original:
+        return
+    fd, name = tempfile.mkstemp(prefix=".theme-", suffix=".conf", dir=DATA_CONFIG.parent)
+    try:
+        with os.fdopen(fd, "w") as target:
+            target.write(updated)
+            target.flush()
+            os.fsync(target.fileno())
+        os.chmod(name, 0o644)
+        os.replace(name, DATA_CONFIG)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
 def main():
     if len(sys.argv) < 2:
         raise RuntimeError("Usage: wallpaper.py status|seed-source|check-jpeg|sync-source|manual|mode|connector")
@@ -116,7 +156,17 @@ def main():
     with (STATE_DIR / "lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = load_state()
-        if command == "sync-source" and len(sys.argv) == 4:
+        if command == "colors" and len(sys.argv) == 3:
+            if state["colors_sync"]:
+                write_colors(sys.argv[2])
+        elif command == "color-mode" and len(sys.argv) == 3 and sys.argv[2] == "off":
+            state["colors_sync"] = False
+            save_state(state)
+        elif command == "color-mode" and len(sys.argv) == 4 and sys.argv[2] == "on":
+            write_colors(sys.argv[3])
+            state["colors_sync"] = True
+            save_state(state)
+        elif command == "sync-source" and len(sys.argv) == 4:
             if state["mode"] == "manual":
                 return
             connector, source = sys.argv[2:4]

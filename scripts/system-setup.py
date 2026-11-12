@@ -18,6 +18,7 @@ SDDM_CONFIG_BACKUP = Path("/etc/sddm.conf.noctail-backup")
 SDDM_CONFIG_ABSENT = Path("/etc/sddm.conf.noctail-absent")
 DATA_DIR = Path("/var/lib/noctail-sddm-wallpaper")
 DEST = DATA_DIR / "background.jpg"
+DATA_CONFIG = DATA_DIR / "theme.conf"
 
 
 def select_theme():
@@ -82,7 +83,22 @@ def install(username, source_path, theme_source_path):
     finally:
         if os.path.exists(name):
             os.unlink(name)
-    CONFIG.write_text(updated)
+    config_fd, config_name = tempfile.mkstemp(prefix=".theme-", suffix=".conf", dir=DATA_DIR)
+    try:
+        with os.fdopen(config_fd, "w") as target:
+            target.write(updated)
+            target.flush()
+            os.fsync(target.fileno())
+        os.chown(config_name, user.pw_uid, user.pw_gid)
+        os.chmod(config_name, 0o644)
+        os.replace(config_name, DATA_CONFIG)
+    finally:
+        if os.path.exists(config_name):
+            os.unlink(config_name)
+    link_name = THEME / ".theme.conf.noctail-link"
+    link_name.unlink(missing_ok=True)
+    os.symlink(DATA_CONFIG, link_name)
+    os.replace(link_name, CONFIG)
     select_theme()
     print("SDDM background now uses", DEST)
 
@@ -90,6 +106,7 @@ def install(username, source_path, theme_source_path):
 def uninstall():
     if not BACKUP.is_file():
         raise RuntimeError("No theme.conf backup found")
+    CONFIG.unlink(missing_ok=True)
     shutil.copy2(BACKUP, CONFIG)
     BACKUP.unlink()
     if SDDM_CONFIG_BACKUP.exists():

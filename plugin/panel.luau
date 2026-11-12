@@ -1,7 +1,17 @@
 local helper = noctalia.pluginDir() .. "/wallpaper.py"
-local status = { mode = "sync", connector = "", installed = false, image = "" }
+local status = { mode = "sync", connector = "", installed = false, image = "", colors_sync = true }
 local errorMessage = ""
 local busy = false
+local colorRoles = {
+    mPrimary = "primary", mOnPrimary = "on_primary",
+    mSecondary = "secondary", mOnSecondary = "on_secondary",
+    mTertiary = "tertiary", mOnTertiary = "on_tertiary",
+    mError = "error", mOnError = "on_error",
+    mSurface = "surface", mOnSurface = "on_surface",
+    mSurfaceVariant = "surface_container", mOnSurfaceVariant = "on_surface_variant",
+    mOutline = "outline_variant", mShadow = "shadow",
+    mHover = "hover", mOnHover = "on_hover",
+}
 
 local function commandError(result, fallback)
     if result.timedOut then
@@ -94,6 +104,28 @@ function selectOutput(name)
     run({ "connector", name, source })
 end
 
+function toggleColors()
+    if status.colors_sync then
+        run({ "color-mode", "off" })
+        return
+    end
+    local colors = {}
+    for key, role in pairs(colorRoles) do
+        local value = noctalia.getColor(role)
+        if not value then
+            showError("Noctalia color unavailable: " .. role)
+            return
+        end
+        colors[key] = value
+    end
+    local payload = noctalia.json.encode(colors)
+    if not payload then
+        showError("Could not encode Noctalia colors")
+        return
+    end
+    run({ "color-mode", "on", payload })
+end
+
 function onOpen()
     refresh()
 end
@@ -110,6 +142,7 @@ function update()
             ui.button({ text = "Sync with Noctalia", variant = status.mode == "sync" and "primary" or "default", enabled = not busy and status.installed, onClick = enableSync }),
             ui.button({ text = "Choose image…", variant = status.mode == "manual" and "primary" or "default", enabled = not busy and status.installed, onClick = chooseImage }),
         }),
+        ui.button({ text = status.colors_sync and "Color sync: on" or "Color sync: off", variant = status.colors_sync and "primary" or "default", enabled = not busy and status.installed, onClick = toggleColors }),
         ui.label({ text = "Source monitor: " .. (status.connector ~= "" and status.connector or "current focused monitor") }),
         ui.label({ text = "Noctalia: " .. currentName, maxLines = 1 }),
         ui.label({ text = "SDDM: " .. copiedName, maxLines = 1 }),
