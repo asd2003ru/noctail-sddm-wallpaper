@@ -90,6 +90,33 @@ class WallpaperTests(unittest.TestCase):
 
 
 class SystemSetupTests(unittest.TestCase):
+    def test_bundled_theme_installs_without_existing_theme(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            theme = root / "themes/sddm"
+            theme.parent.mkdir()
+            source = root / "wallpaper.jpg"
+            source.write_bytes(b"\xff\xd8\xffseed-jpeg-bytes\xff\xd9")
+            data = root / "data"
+            sddm_config = root / "sddm.conf"
+            import pwd
+            user = pwd.getpwuid(os.getuid()).pw_name
+            with patch.object(system_setup, "THEME", theme), \
+                    patch.object(system_setup, "CONFIG", theme / "theme.conf"), \
+                    patch.object(system_setup, "METADATA", theme / "metadata.desktop"), \
+                    patch.object(system_setup, "BACKUP", theme / "theme.conf.noctail-backup"), \
+                    patch.object(system_setup, "SDDM_CONFIG", sddm_config), \
+                    patch.object(system_setup, "SDDM_CONFIG_BACKUP", root / "sddm.conf.noctail-backup"), \
+                    patch.object(system_setup, "SDDM_CONFIG_ABSENT", root / "sddm.conf.noctail-absent"), \
+                    patch.object(system_setup, "DATA_DIR", data), \
+                    patch.object(system_setup, "DEST", data / "background.jpg"):
+                system_setup.install(user, str(source), str(Path(__file__).parents[1] / "theme"))
+                self.assertTrue((theme / "Main.qml").is_file())
+                self.assertIn("Current=sddm", sddm_config.read_text())
+                self.assertEqual((data / "background.jpg").read_bytes(), source.read_bytes())
+                system_setup.uninstall()
+                self.assertFalse(sddm_config.exists())
+
     def test_install_and_uninstall_restore_theme(self):
         with tempfile.TemporaryDirectory() as tmp:
             theme = Path(tmp) / "theme"
@@ -100,24 +127,32 @@ class SystemSetupTests(unittest.TestCase):
             source.write_bytes(b"\xff\xd8\xffseed-jpeg-bytes\xff\xd9")
             config = theme / "theme.conf"
             metadata = theme / "metadata.desktop"
-            metadata.write_text("[SddmGreeterTheme]\nQtVersion=6\n")
+            metadata.write_text("[SddmGreeterTheme]\nName=Noctalia\nQtVersion=6\n")
+            (theme / "Main.qml").write_text("import QtQuick 2.15\n")
             original = "[General]\nbackground=Assets/background.png\nblurRadius=0\n"
             config.write_text(original)
             data = Path(tmp) / "data"
+            sddm_config = Path(tmp) / "sddm.conf"
+            sddm_config.write_text("[Theme]\nCurrent=elarun\n")
             import pwd
             user = pwd.getpwuid(__import__("os").getuid()).pw_name
             with patch.object(system_setup, "THEME", theme), \
                     patch.object(system_setup, "CONFIG", config), \
                     patch.object(system_setup, "METADATA", metadata), \
                     patch.object(system_setup, "BACKUP", theme / "theme.conf.noctail-backup"), \
+                    patch.object(system_setup, "SDDM_CONFIG", sddm_config), \
+                    patch.object(system_setup, "SDDM_CONFIG_BACKUP", Path(tmp) / "sddm.conf.noctail-backup"), \
+                    patch.object(system_setup, "SDDM_CONFIG_ABSENT", Path(tmp) / "sddm.conf.noctail-absent"), \
                     patch.object(system_setup, "DATA_DIR", data), \
                     patch.object(system_setup, "DEST", data / "background.jpg"):
-                system_setup.install(user, str(source))
+                system_setup.install(user, str(source), str(theme))
                 self.assertIn("background=file://" + str(data / "background.jpg"), config.read_text())
                 self.assertEqual((data / "background.jpg").read_bytes(), source.read_bytes())
-                system_setup.install(user, str(source))
+                self.assertIn("Current=sddm", sddm_config.read_text())
+                system_setup.install(user, str(source), str(theme))
                 system_setup.uninstall()
                 self.assertEqual(config.read_text(), original)
+                self.assertEqual(sddm_config.read_text(), "[Theme]\nCurrent=elarun\n")
 
 
 if __name__ == "__main__":

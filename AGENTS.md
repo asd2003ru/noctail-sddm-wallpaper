@@ -2,12 +2,13 @@
 
 ## Purpose and structure
 
-This repository provides the `noctail/sddm-wallpaper` plugin for Noctalia v5. It synchronizes one selected output's wallpaper with the existing SDDM theme named `sddm`, or keeps a separate manually selected image. It does not ship or replace an SDDM theme.
+This repository provides the `noctail/sddm-wallpaper` plugin for Noctalia v5. It synchronizes one selected output's wallpaper with the bundled Noctalia SDDM theme, or keeps a separate manually selected image.
 
 - `plugin/plugin.toml` declares the Noctalia panel, background service, and launcher provider. Keep the plugin ID and entry IDs consistent with IPC commands and the installer.
 - `plugin/launcher.luau` exposes the panel through global launcher search and the `/sddm` prefix.
 - `plugin/panel.luau` implements the user interface; `plugin/service.luau` handles sync events; `plugin/wallpaper.py` stores mode and output selection and copies JPEG images without changing their resolution.
-- `scripts/install.sh` checks requirements, performs privileged SDDM setup, installs and enables the plugin, then triggers initial sync. `scripts/system-setup.py` is the one-time privileged setup and restore path for the installed SDDM theme.
+- `theme/` contains the vendored Noctalia SDDM theme, including its source and license notices. Keep its assets relative and do not replace a different installed theme at the same path.
+- `scripts/install.sh` checks requirements, performs privileged SDDM setup, installs and enables the plugin, then triggers initial sync. `scripts/system-setup.py` installs the bundled theme, selects it in SDDM, and restores prior configuration on uninstall.
 - `tests/test_wallpaper.py` exercises wallpaper replacement, mode persistence, and theme configuration restore. The project has no bundled wallpapers or build step.
 
 ## Development and checks
@@ -30,6 +31,6 @@ The default mode follows Noctalia's wallpaper on the selected output. The servic
 
 ## Installation and review safety
 
-Keep privileged work limited to `scripts/system-setup.py`. Back up `theme.conf` before changing its background path, and keep uninstall able to restore it. The installer manages its dedicated Noctalia wallpaper hook file without overwriting different content. Installation must remain repeatable and run from the repository root.
+Keep privileged work limited to `scripts/system-setup.py`. Back up `theme.conf` and any changed SDDM selection before changing them, and keep uninstall able to restore them. The installer manages its dedicated Noctalia wallpaper hook file without overwriting different content. Installation must remain repeatable and run from the repository root.
 
 Use short, imperative commit subjects. Pull requests should describe the user-visible change, list lint/test and preview steps, and include a screenshot when the login screen appearance changes.

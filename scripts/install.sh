@@ -20,8 +20,8 @@ for dependency in git python3 zenity sudo noctalia sddm-greeter-qt6; do
     fi
 done
 
-if [ ! -f /usr/share/sddm/themes/sddm/theme.conf ]; then
-    echo 'Missing Noctalia SDDM theme at /usr/share/sddm/themes/sddm; see README.md.' >&2
+if [ ! -f "$repo_dir/theme/Main.qml" ] || [ ! -f "$repo_dir/theme/metadata.desktop" ]; then
+    echo 'Bundled Noctalia SDDM theme is incomplete.' >&2
     exit 1
 fi
 
@@ -43,7 +43,7 @@ if [ -z "$seed_source" ]; then
 fi
 python3 "$repo_dir/plugin/wallpaper.py" check-jpeg "$seed_source"
 
-sudo python3 "$repo_dir/scripts/system-setup.py" install "$(id -un)" "$seed_source"
+sudo python3 "$repo_dir/scripts/system-setup.py" install "$(id -un)" "$seed_source" "$repo_dir/theme"
 mkdir -p "$plugin_dir"
 install -m 644 "$repo_dir/plugin/plugin.toml" "$repo_dir/plugin/panel.luau" \
     "$repo_dir/plugin/service.luau" "$repo_dir/plugin/launcher.luau" "$plugin_dir/"
