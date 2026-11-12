@@ -20,7 +20,7 @@ class WallpaperTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
-        self.dest = root / "sddm/background.png"
+        self.dest = root / "sddm/background.jpg"
         self.dest.parent.mkdir()
         self.dest.write_bytes(b"previous")
         self.state_dir = root / "state"
@@ -32,9 +32,8 @@ class WallpaperTests(unittest.TestCase):
         for item in self.patches:
             item.start()
             self.addCleanup(item.stop)
-        self.source = root / "wallpaper.png"
-        import subprocess
-        subprocess.run(["magick", "-size", "4x4", "xc:blue", str(self.source)], check=True)
+        self.source = root / "wallpaper.jpg"
+        self.source.write_bytes(b"\xff\xd8\xffexample-jpeg-bytes\xff\xd9")
 
     def invoke(self, *args):
         with patch.object(wallpaper.sys, "argv", ["wallpaper.py", *args]):
@@ -43,22 +42,34 @@ class WallpaperTests(unittest.TestCase):
     def test_manual_survives_sync_until_mode_changes(self):
         self.invoke("manual", str(self.source))
         manual = self.dest.read_bytes()
+        self.assertEqual(manual, self.source.read_bytes())
         self.assertEqual(wallpaper.load_state()["mode"], "manual")
+        with patch.object(wallpaper.sys, "argv", ["wallpaper.py", "seed-source"]), \
+                patch("builtins.print") as output:
+            wallpaper.main()
+            output.assert_called_once_with(str(self.source.resolve()))
         self.invoke("sync-source", "DP-1", str(self.source))
         self.assertEqual(self.dest.read_bytes(), manual)
         self.invoke("mode", "sync", "DP-1", str(self.source))
         self.assertEqual(wallpaper.load_state()["mode"], "sync")
         self.assertEqual(wallpaper.load_state()["connector"], "DP-1")
 
-    def test_invalid_image_keeps_previous_background(self):
+    def test_png_is_rejected_without_changing_background(self):
         bad = Path(self.tmp.name) / "bad.png"
-        bad.write_text("not an image")
-        with self.assertRaises(RuntimeError):
+        bad.write_bytes(b"\x89PNG\r\n\x1a\n")
+        with self.assertRaisesRegex(RuntimeError, "PNG is not supported"):
             self.invoke("manual", str(bad))
         self.assertEqual(self.dest.read_bytes(), b"previous")
         self.assertEqual(wallpaper.load_state()["mode"], "sync")
 
-    def test_sync_retries_changes_without_reconverting_unchanged_image(self):
+    def test_invalid_jpeg_is_rejected(self):
+        bad = Path(self.tmp.name) / "bad.jpg"
+        bad.write_text("not a jpeg")
+        with self.assertRaisesRegex(RuntimeError, "not a valid JPEG"):
+            self.invoke("manual", str(bad))
+        self.assertEqual(self.dest.read_bytes(), b"previous")
+
+    def test_sync_retries_changes_without_recopying_unchanged_image(self):
         with patch.object(wallpaper, "copy_image", wraps=wallpaper.copy_image) as convert:
             self.invoke("sync-source", "DP-1", str(self.source))
             self.invoke("sync-source", "DP-1", str(self.source))
@@ -71,9 +82,8 @@ class WallpaperTests(unittest.TestCase):
     def test_sync_ignores_other_monitor(self):
         self.invoke("sync-source", "DP-1", str(self.source))
         first = self.dest.read_bytes()
-        second = Path(self.tmp.name) / "other.png"
-        import subprocess
-        subprocess.run(["magick", "-size", "4x4", "xc:red", str(second)], check=True)
+        second = Path(self.tmp.name) / "other.jpg"
+        second.write_bytes(b"\xff\xd8\xffother-jpeg-bytes\xff\xd9")
         self.invoke("sync-source", "HDMI-A-1", str(second))
         self.assertEqual(self.dest.read_bytes(), first)
         self.assertEqual(wallpaper.load_state()["connector"], "DP-1")
@@ -86,6 +96,8 @@ class SystemSetupTests(unittest.TestCase):
             assets = theme / "Assets"
             assets.mkdir(parents=True)
             (assets / "background.png").write_bytes(b"original image")
+            source = Path(tmp) / "wallpaper.jpg"
+            source.write_bytes(b"\xff\xd8\xffseed-jpeg-bytes\xff\xd9")
             config = theme / "theme.conf"
             metadata = theme / "metadata.desktop"
             metadata.write_text("[SddmGreeterTheme]\nQtVersion=6\n")
@@ -99,11 +111,11 @@ class SystemSetupTests(unittest.TestCase):
                     patch.object(system_setup, "METADATA", metadata), \
                     patch.object(system_setup, "BACKUP", theme / "theme.conf.noctail-backup"), \
                     patch.object(system_setup, "DATA_DIR", data), \
-                    patch.object(system_setup, "DEST", data / "background.png"):
-                system_setup.install(user)
-                self.assertIn("background=file://" + str(data / "background.png"), config.read_text())
-                self.assertEqual((data / "background.png").read_bytes(), b"original image")
-                system_setup.install(user)
+                    patch.object(system_setup, "DEST", data / "background.jpg"):
+                system_setup.install(user, str(source))
+                self.assertIn("background=file://" + str(data / "background.jpg"), config.read_text())
+                self.assertEqual((data / "background.jpg").read_bytes(), source.read_bytes())
+                system_setup.install(user, str(source))
                 system_setup.uninstall()
                 self.assertEqual(config.read_text(), original)
 

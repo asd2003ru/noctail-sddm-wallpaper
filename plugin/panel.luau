@@ -62,7 +62,7 @@ end
 
 function chooseImage()
     if busy then return end
-    local accepted = noctalia.runAsync({ "zenity", "--file-selection", "--title=Choose SDDM wallpaper", "--file-filter=Images | *.png *.jpg *.jpeg *.webp *.bmp *.avif", "--file-filter=All files | *" }, function(result)
+    local accepted = noctalia.runAsync({ "zenity", "--file-selection", "--title=Choose SDDM wallpaper", "--file-filter=JPEG images | *.jpg *.jpeg *.JPG *.JPEG", "--file-filter=All files | *" }, function(result)
         if result.exitCode == 0 then
             local path = (result.stdout or ""):gsub("\r?\n$", "")
             if path ~= "" then run({ "manual", path }) end

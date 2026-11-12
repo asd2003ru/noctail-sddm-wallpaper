@@ -4,7 +4,8 @@
 
 - Niri с запущенной Noctalia v5 (plugin API 25 или новее).
 - SDDM 0.21 с установленной и выбранной темой `sddm` в `/usr/share/sddm/themes/sddm`. Тема должна использовать Qt 6; на Arch Linux нужны `qt6-declarative` и `qt6-5compat`.
-- Python 3.11+, ImageMagick (`magick`), `zenity`, `sudo` и Git. Для команды клонирования ниже нужен доступ к GitHub по SSH.
+- Python 3.11+, `zenity`, `sudo` и Git. Для команды клонирования ниже нужен доступ к GitHub по SSH.
+- Обои в формате JPEG (`.jpg` или `.jpeg`). PNG не поддерживается: плагин покажет уведомление при выборе такого файла.
 
 ## Установка
 

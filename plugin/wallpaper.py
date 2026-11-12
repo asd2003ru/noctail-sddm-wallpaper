@@ -5,11 +5,11 @@ import fcntl
 import json
 import os
 from pathlib import Path
-import subprocess
+import shutil
 import sys
 import tempfile
 
-DEST = Path("/var/lib/noctail-sddm-wallpaper/background.png")
+DEST = Path("/var/lib/noctail-sddm-wallpaper/background.jpg")
 STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
 STATE_DIR = STATE_HOME / "noctail-sddm-wallpaper"
 STATE_FILE = STATE_DIR / "state.json"
@@ -54,20 +54,29 @@ def require_installed():
         raise RuntimeError("SDDM integration is missing; run scripts/install.sh")
 
 
-def copy_image(source):
-    require_installed()
+def validate_jpeg(source):
     source = Path(source).expanduser().resolve(strict=True)
     if not source.is_file():
         raise RuntimeError("Selected path is not a file")
-    fd, name = tempfile.mkstemp(prefix=".background-", suffix=".png", dir=DEST.parent)
-    os.close(fd)
+    if source.suffix.lower() not in (".jpg", ".jpeg"):
+        if source.suffix.lower() == ".png":
+            raise RuntimeError("PNG is not supported. Choose a JPEG wallpaper (.jpg or .jpeg).")
+        raise RuntimeError("Only JPEG wallpapers (.jpg or .jpeg) are supported.")
+    with source.open("rb") as stream:
+        if stream.read(3) != b"\xff\xd8\xff":
+            raise RuntimeError("Selected file is not a valid JPEG")
+    return source
+
+
+def copy_image(source):
+    require_installed()
+    source = validate_jpeg(source)
+    fd, name = tempfile.mkstemp(prefix=".background-", suffix=".jpg", dir=DEST.parent)
     try:
-        process = subprocess.run(
-            ["magick", str(source), "-auto-orient", "-strip", "PNG:" + name],
-            capture_output=True, text=True, timeout=50, check=False,
-        )
-        if process.returncode:
-            raise RuntimeError(process.stderr.strip() or "ImageMagick could not decode the image")
+        with os.fdopen(fd, "wb") as target, source.open("rb") as original:
+            shutil.copyfileobj(original, target)
+            target.flush()
+            os.fsync(target.fileno())
         os.chmod(name, 0o644)
         os.replace(name, DEST)
     finally:
@@ -77,7 +86,7 @@ def copy_image(source):
 
 
 def needs_update(source, state):
-    source = Path(source).expanduser().resolve(strict=True)
+    source = validate_jpeg(source)
     return (
         state["image"] != str(source)
         or not DEST.is_file()
@@ -87,12 +96,20 @@ def needs_update(source, state):
 
 def main():
     if len(sys.argv) < 2:
-        raise RuntimeError("Usage: wallpaper.py status|sync|manual|mode|connector")
+        raise RuntimeError("Usage: wallpaper.py status|seed-source|check-jpeg|sync-source|manual|mode|connector")
     command = sys.argv[1]
     if command == "status":
         state = load_state()
         state["installed"] = DEST.is_file() and os.access(DEST.parent, os.W_OK)
         print(json.dumps(state))
+        return
+    if command == "seed-source":
+        state = load_state()
+        if state["mode"] == "manual":
+            print(state["image"])
+        return
+    if command == "check-jpeg" and len(sys.argv) == 3:
+        validate_jpeg(sys.argv[2])
         return
 
     state_dir()
@@ -140,6 +157,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+    except (OSError, RuntimeError) as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)

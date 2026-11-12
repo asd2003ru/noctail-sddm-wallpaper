@@ -10,15 +10,14 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
-for dependency in git python3 magick zenity sudo noctalia sddm-greeter-qt6; do
+for dependency in git python3 zenity sudo noctalia sddm-greeter-qt6; do
     if ! command -v "$dependency" >/dev/null 2>&1; then
         echo "Missing requirement: $dependency" >&2
         exit 1
     fi
 done
 
-if [ ! -f /usr/share/sddm/themes/sddm/theme.conf ] ||
-   [ ! -f /usr/share/sddm/themes/sddm/Assets/background.png ]; then
+if [ ! -f /usr/share/sddm/themes/sddm/theme.conf ]; then
     echo 'Missing requirement: Noctalia SDDM theme at /usr/share/sddm/themes/sddm' >&2
     exit 1
 fi
@@ -30,14 +29,22 @@ fi
 
 noctalia plugins lint "$repo_dir/plugin"
 
-sudo python3 "$repo_dir/scripts/system-setup.py" install "$(id -un)"
+seed_source=$(python3 "$repo_dir/plugin/wallpaper.py" seed-source)
+if [ -z "$seed_source" ]; then
+    seed_source=$(noctalia msg wallpaper-get)
+fi
+python3 "$repo_dir/plugin/wallpaper.py" check-jpeg "$seed_source"
+
+sudo python3 "$repo_dir/scripts/system-setup.py" install "$(id -un)" "$seed_source"
 mkdir -p "$plugin_dir"
 install -m 644 "$repo_dir/plugin/plugin.toml" "$repo_dir/plugin/panel.luau" \
     "$repo_dir/plugin/service.luau" "$repo_dir/plugin/launcher.luau" "$plugin_dir/"
 install -m 755 "$repo_dir/plugin/wallpaper.py" "$plugin_dir/wallpaper.py"
 
 noctalia msg config-reload
-noctalia msg plugins enable noctail/sddm-wallpaper
+if ! noctalia msg plugins enable noctail/sddm-wallpaper; then
+    echo 'Plugin enable reported an error; checking whether the existing plugin is active.' >&2
+fi
 noctalia msg plugin noctail/sddm-wallpaper:sync all sync
 
 echo "Installed SDDM Wallpaper. Open Noctalia Launcher and enter /sddm."

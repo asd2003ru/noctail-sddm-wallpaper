@@ -7,6 +7,9 @@ local sync
 local function reportError(message)
     if message ~= lastError then
         noctalia.log("SDDM wallpaper sync: " .. message)
+        if string.find(message, "PNG is not supported", 1, true) then
+            noctalia.notifyError("SDDM Wallpaper", message)
+        end
         lastError = message
     end
 end
