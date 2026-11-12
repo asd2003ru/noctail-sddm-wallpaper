@@ -21,7 +21,7 @@ for dependency in git python3 zenity sudo noctalia sddm-greeter-qt6; do
 done
 
 if [ ! -f /usr/share/sddm/themes/sddm/theme.conf ]; then
-    echo 'Missing requirement: Noctalia SDDM theme at /usr/share/sddm/themes/sddm' >&2
+    echo 'Missing Noctalia SDDM theme at /usr/share/sddm/themes/sddm; see README.md.' >&2
     exit 1
 fi
 
