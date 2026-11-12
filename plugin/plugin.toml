@@ -1,0 +1,28 @@
+id = "noctail/sddm-wallpaper"
+name = "SDDM Wallpaper"
+version = "1.1.2"
+plugin_api = 25
+author = "noctail"
+license = "MIT"
+icon = "photo"
+description = "Sync a selected Noctalia output or choose a separate SDDM wallpaper."
+dependencies = ["python3", "ImageMagick", "zenity"]
+
+[[panel]]
+id = "wallpaper"
+entry = "panel.luau"
+width = 420
+height = 400
+placement = "floating"
+position = "center"
+
+[[service]]
+id = "sync"
+entry = "service.luau"
+
+[[launcher_provider]]
+id = "open"
+entry = "launcher.luau"
+prefix = "sddm"
+glyph = "photo"
+include_in_global_search = true
