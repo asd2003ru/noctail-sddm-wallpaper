@@ -1,6 +1,6 @@
 id = "noctail/sddm-wallpaper"
 name = "SDDM Wallpaper"
-version = "1.2.0"
+version = "1.2.1"
 plugin_api = 25
 author = "noctail"
 license = "MIT"

@@ -81,9 +81,7 @@ function onIpc(event, _payload)
     end
 end
 
-noctalia.setUpdateInterval(10000)
-
-function update()
+function onOutputsChanged()
     sync()
 end
 

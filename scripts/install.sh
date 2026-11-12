@@ -4,6 +4,9 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
 plugin_dir="$data_home/noctalia/plugins/noctail-sddm-wallpaper"
+config_home=${NOCTALIA_CONFIG_HOME:-${XDG_CONFIG_HOME:-"$HOME/.config"}}
+hook_file="$config_home/noctalia/sddm-wallpaper.toml"
+hook_command='wallpaper_changed = "noctalia msg plugin noctail/sddm-wallpaper:sync all sync"'
 
 if [ "$(id -u)" -eq 0 ]; then
     echo 'Run scripts/install.sh as your regular user.' >&2
@@ -29,6 +32,11 @@ fi
 
 noctalia plugins lint "$repo_dir/plugin"
 
+if [ -f "$hook_file" ] && ! grep -Fqx "$hook_command" "$hook_file"; then
+    echo "Existing $hook_file does not contain the expected wallpaper hook; merge it manually." >&2
+    exit 1
+fi
+
 seed_source=$(python3 "$repo_dir/plugin/wallpaper.py" seed-source)
 if [ -z "$seed_source" ]; then
     seed_source=$(noctalia msg wallpaper-get)
@@ -40,6 +48,11 @@ mkdir -p "$plugin_dir"
 install -m 644 "$repo_dir/plugin/plugin.toml" "$repo_dir/plugin/panel.luau" \
     "$repo_dir/plugin/service.luau" "$repo_dir/plugin/launcher.luau" "$plugin_dir/"
 install -m 755 "$repo_dir/plugin/wallpaper.py" "$plugin_dir/wallpaper.py"
+
+if [ ! -f "$hook_file" ]; then
+    mkdir -p "$(dirname -- "$hook_file")"
+    printf '[hooks]\n%s\n' "$hook_command" > "$hook_file"
+fi
 
 noctalia msg config-reload
 if ! noctalia msg plugins enable noctail/sddm-wallpaper; then
