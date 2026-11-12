@@ -23,7 +23,7 @@ cd noctail-sddm-wallpaper
 ./scripts/install.sh
 ```
 
-The installer prompts for `sudo`, installs the bundled theme to `/usr/share/sddm/themes/sddm`, selects it in SDDM, installs and enables the plugin, and starts the first sync. If another theme already occupies that directory, the installer stops without replacing it. The theme's source and license are recorded in `theme/SOURCE.md` and `theme/LICENSE`. After installation, open Noctalia Launcher and enter `/sddm` to choose a monitor or a separate image. Theme colors sync with Noctalia at startup and when the palette changes; the plugin's `Color sync` button controls this independently of wallpaper sync.
+The installer prompts for `sudo`, installs the bundled theme to `/usr/share/sddm/themes/sddm`, selects it in SDDM, installs and enables the plugin, and starts the first sync. If another theme already occupies that directory, the installer stops without replacing it. After installation, open Noctalia Launcher and enter `/sddm` to choose a monitor or a separate image. Theme colors sync with Noctalia at startup and when the palette changes; the plugin's `Color sync` button controls this independently of wallpaper sync.
 
 ## Русский
 
@@ -50,4 +50,4 @@ cd noctail-sddm-wallpaper
 ./scripts/install.sh
 ```
 
-Установщик запросит `sudo`, установит включённую в проект тему в `/usr/share/sddm/themes/sddm`, выберет её в SDDM, установит и включит плагин, затем запустит первую синхронизацию. Если каталог темы уже занят другой темой, установщик остановится без её замены. Источник и лицензия включённой темы указаны в `theme/SOURCE.md` и `theme/LICENSE`. После установки откройте Noctalia Launcher и введите `/sddm` для выбора монитора или отдельного изображения. Цвета темы синхронизируются с Noctalia при запуске и смене палитры; кнопка `Color sync` в плагине отключает или включает это отдельно от обоев.
+Установщик запросит `sudo`, установит включённую в проект тему в `/usr/share/sddm/themes/sddm`, выберет её в SDDM, установит и включит плагин, затем запустит первую синхронизацию. Если каталог темы уже занят другой темой, установщик остановится без её замены. После установки откройте Noctalia Launcher и введите `/sddm` для выбора монитора или отдельного изображения. Цвета темы синхронизируются с Noctalia при запуске и смене палитры; кнопка `Color sync` в плагине отключает или включает это отдельно от обоев.
