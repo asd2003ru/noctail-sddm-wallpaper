@@ -65,6 +65,22 @@ noctalia msg config-reload
 if ! noctalia msg plugins enable noctail/sddm-wallpaper; then
     echo 'Plugin enable reported an error; checking whether the existing plugin is active.' >&2
 fi
-noctalia msg plugin noctail/sddm-wallpaper:sync all sync
+attempt=0
+while :; do
+    if sync_result=$(noctalia msg plugin noctail/sddm-wallpaper:sync all sync 2>&1); then
+        printf '%s\n' "$sync_result"
+        break
+    fi
+    case $sync_result in
+        *"no plugin entry matched"*) ;;
+        *) printf '%s\n' "$sync_result" >&2; exit 1 ;;
+    esac
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge 20 ]; then
+        echo 'Plugin service did not become available after 20 seconds. Check Noctalia plugin status and logs.' >&2
+        exit 1
+    fi
+    sleep 1
+done
 
 echo "Installed SDDM Wallpaper. Open Noctalia Launcher and enter /sddm."
