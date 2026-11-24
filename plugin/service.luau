@@ -15,6 +15,16 @@ local colorRoles = {
     mHover = "hover", mOnHover = "on_hover",
 }
 
+local function defaultOutputName()
+    local focused = noctalia.focusedOutputName()
+    if focused and focused ~= "" then return focused end
+    local outputs = noctalia.outputs()
+    for _, output in ipairs(outputs) do
+        if output.focused then return output.name end
+    end
+    return outputs[1] and outputs[1].name or nil
+end
+
 local function syncColors()
     local colors = {}
     for key, role in pairs(colorRoles) do
@@ -78,8 +88,12 @@ sync = function()
             finish()
             return
         end
-        local connector = state.connector ~= "" and state.connector or noctalia.focusedOutputName()
-        local source = connector and noctalia.wallpaperPath(connector) or nil
+        local connector = state.connector ~= "" and state.connector or defaultOutputName()
+        if not connector then
+            finish()
+            return
+        end
+        local source = noctalia.wallpaperPath(connector)
         if not source or source == "" then
             reportError("no wallpaper available for output " .. (connector or "unknown"))
             finish()

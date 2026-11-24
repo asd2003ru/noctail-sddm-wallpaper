@@ -13,6 +13,16 @@ local colorRoles = {
     mHover = "hover", mOnHover = "on_hover",
 }
 
+local function defaultOutputName()
+    local focused = noctalia.focusedOutputName()
+    if focused and focused ~= "" then return focused end
+    local outputs = noctalia.outputs()
+    for _, output in ipairs(outputs) do
+        if output.focused then return output.name end
+    end
+    return outputs[1] and outputs[1].name or nil
+end
+
 local function commandError(result, fallback)
     if result.timedOut then
         return "Image update timed out after 60 seconds"
@@ -86,7 +96,7 @@ function chooseImage()
 end
 
 function enableSync()
-    local connector = status.connector ~= "" and status.connector or noctalia.focusedOutputName()
+    local connector = status.connector ~= "" and status.connector or defaultOutputName()
     local source = connector and noctalia.wallpaperPath(connector) or nil
     if not source or source == "" then
         showError("No wallpaper available for the selected output")
@@ -131,7 +141,7 @@ function onOpen()
 end
 
 function update()
-    local connector = status.connector ~= "" and status.connector or noctalia.focusedOutputName()
+    local connector = status.connector ~= "" and status.connector or defaultOutputName()
     local current = connector and noctalia.wallpaperPath(connector) or nil
     local currentName = current and string.match(current, "[^/]+$") or "unavailable"
     local copiedName = status.image ~= "" and string.match(status.image, "[^/]+$") or "none"
