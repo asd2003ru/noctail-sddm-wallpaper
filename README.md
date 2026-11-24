@@ -9,10 +9,10 @@
 
 ## Installation
 
-On Arch Linux, install SDDM and the Qt 6 modules:
+On Arch Linux, install SDDM, the Qt 6 modules, and `zenity` (the wallpaper file chooser):
 
 ```sh
-sudo pacman -S --needed sddm qt6-declarative qt6-5compat
+sudo pacman -S --needed sddm qt6-declarative qt6-5compat zenity
 ```
 
 In a Niri session with Noctalia running, clone the repository and run the installer:
@@ -36,10 +36,10 @@ The installer prompts for `sudo`, installs the bundled theme to `/usr/share/sddm
 
 ### Установка
 
-На Arch Linux установите SDDM и модули Qt 6:
+На Arch Linux установите SDDM, модули Qt 6 и `zenity` (диалог выбора файла обоев):
 
 ```sh
-sudo pacman -S --needed sddm qt6-declarative qt6-5compat
+sudo pacman -S --needed sddm qt6-declarative qt6-5compat zenity
 ```
 
 В сессии Niri с запущенной Noctalia установите плагин и тему одной командой:
